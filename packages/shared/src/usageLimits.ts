@@ -370,14 +370,17 @@ const WINDOW_KIND_ORDER: Record<ServerProviderUsageWindow["kind"], number> = {
 export function collectLimitPools(
   accounts: readonly LimitAccount[],
   now: number,
+  groupBy: "driver" | "account" = "driver",
 ): readonly LimitPool[] {
-  const byDriver = new Map<ServerProvider["driver"], LimitAccount[]>();
+  const byGroup = new Map<string, LimitAccount[]>();
   for (const account of accounts) {
-    const list = byDriver.get(account.driver);
+    const key = groupBy === "account" ? account.key : account.driver;
+    const list = byGroup.get(key);
     if (list) list.push(account);
-    else byDriver.set(account.driver, [account]);
+    else byGroup.set(key, [account]);
   }
-  return [...byDriver].map(([driver, members]) => {
+  return [...byGroup.values()].map((members) => {
+    const driver = members[0]!.driver;
     const orderWindow = members
       .flatMap((account) => account.limits.windows)
       .sort((left, right) => WINDOW_KIND_ORDER[left.kind] - WINDOW_KIND_ORDER[right.kind])[0];

@@ -894,6 +894,26 @@ describe("pooled account columns", () => {
     expect(pool!.windows[1]!.resets.map((reset) => reset.restoresPercent)).toEqual([40, 20]);
   });
 
+  it("keeps each account's allowance and reset independent in account sections", () => {
+    const accounts = [
+      account("premium", [
+        { ...window, usedPercent: 10 },
+        { ...weekly, usedPercent: 80, resetsAt: "2026-09-05T12:00:00.000Z" },
+      ]),
+      account("standard", [{ ...weekly, usedPercent: 20, resetsAt: "2026-09-06T12:00:00.000Z" }]),
+    ];
+    const pools = collectLimitPools(accounts, now, "account");
+    expect(pools).toHaveLength(2);
+    expect(pools.map((pool) => pool.accounts.map((account) => account.key))).toEqual([
+      ["premium"],
+      ["standard"],
+    ]);
+    expect(pools[0]!.windows.map((window) => window.remainingPercent)).toEqual([90, 20]);
+    expect(pools[1]!.windows.map((window) => window.remainingPercent)).toEqual([80]);
+    expect(pools[0]!.windows[1]!.resets[0]!.restoresPercent).toBe(80);
+    expect(pools[1]!.windows[0]!.resets[0]!.at).toBe(Date.parse("2026-09-06T12:00:00.000Z"));
+  });
+
   it("falls back to weekly resets when no account reports a session", () => {
     const [pool] = collectLimitPools(
       [
