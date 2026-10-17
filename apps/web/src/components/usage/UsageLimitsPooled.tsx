@@ -492,20 +492,34 @@ function PoolWindowCard({
 
 function PoolSection({ pool, now }: { readonly pool: LimitPool; readonly now: number }) {
   const color = barColor(pool.driver);
-  const label = providerClients.get(pool.driver)?.label ?? String(pool.driver);
+  const account = pool.accounts[0];
+  const label =
+    account?.displayName ?? providerClients.get(pool.driver)?.label ?? String(pool.driver);
   const windows = displayLimitWindows(pool);
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
-        <ProviderInstanceIcon
-          driverKind={pool.driver}
-          displayName={label}
-          indicatorBackground="var(--background)"
-          className="size-5"
-          iconClassName="size-4 text-foreground/80"
-        />
-        {label}
-      </h2>
+      <div className="flex flex-col gap-1">
+        <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <ProviderInstanceIcon
+            driverKind={pool.driver}
+            displayName={label}
+            indicatorBackground="var(--background)"
+            className="size-5"
+            iconClassName="size-4 text-foreground/80"
+          />
+          {label}
+        </h2>
+        {account?.plan ? <p className="text-xs text-muted-foreground">{account.plan}</p> : null}
+        {account?.email ? (
+          <RedactedSensitiveText
+            value={account.email}
+            ariaLabel="Toggle account email visibility"
+            revealTooltip="Click to reveal email"
+            hideTooltip="Click to hide email"
+            className="w-fit text-xs"
+          />
+        ) : null}
+      </div>
       {windows.map((window) => {
         const details = pool.driver === "cursor" ? cursorUsageWindowDetails(window.id) : undefined;
         return (
@@ -532,13 +546,13 @@ export function UsageLimitsPooled({
   readonly now: number;
   readonly cursorPrompt?: ReactNode;
 }) {
-  const pools = collectLimitPools(collectLimitAccounts(presentations), now);
+  const pools = collectLimitPools(collectLimitAccounts(presentations), now, "account");
   const notices = collectLimitNotices(presentations);
   const externalLinks = collectExternalUsageLinks(presentations);
   const cursorPromptAt =
     Math.max(
-      pools.findIndex((pool) => pool.driver === "codex"),
-      pools.findIndex((pool) => pool.driver === "claudeAgent"),
+      pools.findLastIndex((pool) => pool.driver === "codex"),
+      pools.findLastIndex((pool) => pool.driver === "claudeAgent"),
     ) + 1;
   return (
     <div className="flex flex-col gap-8">
@@ -548,7 +562,7 @@ export function UsageLimitsPooled({
         </p>
       ) : null}
       {pools.map((pool, index) => (
-        <Fragment key={pool.driver}>
+        <Fragment key={pool.accounts[0]?.key ?? pool.driver}>
           {index === cursorPromptAt ? cursorPrompt : null}
           <PoolSection pool={pool} now={now} />
         </Fragment>

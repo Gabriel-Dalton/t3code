@@ -227,14 +227,14 @@ export function UsageLimitsSection({
     selectedEnvironmentIds === null
       ? presentations
       : new Map([...presentations].filter(([id]) => selectedEnvironmentIds.has(id)));
-  const pools = collectLimitPools(collectLimitAccounts(selected), now);
+  const pools = collectLimitPools(collectLimitAccounts(selected), now, "account");
   const notices = collectLimitNotices(selected);
   const externalLinks = collectExternalUsageLinks(selected);
   const colors = useProviderColors();
   const cursorPromptAt =
     Math.max(
-      pools.findIndex((pool) => pool.driver === "codex"),
-      pools.findIndex((pool) => pool.driver === "claudeAgent"),
+      pools.findLastIndex((pool) => pool.driver === "codex"),
+      pools.findLastIndex((pool) => pool.driver === "claudeAgent"),
     ) + 1;
   return (
     <View className="gap-6">
@@ -252,15 +252,18 @@ export function UsageLimitsSection({
       {pools.map((pool, index) => {
         const windows = displayLimitWindows(pool);
         return (
-          <Fragment key={pool.driver}>
+          <Fragment key={pool.accounts[0]?.key ?? pool.driver}>
             {index === cursorPromptAt ? cursorPrompt : null}
             <View className="gap-3">
               <View className="flex-row items-center gap-2 px-1">
                 <ProviderIcon provider={pool.driver} size={18} />
                 <Text className="text-base font-t3-medium text-foreground">
-                  {DRIVER_LABEL[pool.driver] ?? pool.driver}
+                  {pool.accounts[0]?.displayName ?? DRIVER_LABEL[pool.driver] ?? pool.driver}
                 </Text>
               </View>
+              {pool.accounts[0]?.plan ? (
+                <Text className="px-1 text-xs text-foreground-muted">{pool.accounts[0].plan}</Text>
+              ) : null}
               {windows.map((window) => {
                 const details =
                   pool.driver === "cursor" ? cursorUsageWindowDetails(window.id) : undefined;
@@ -355,8 +358,8 @@ export function UsageLimitAccountScreen({ route }: AccountScreenProps) {
       : new Map([...presentations].filter(([id]) => selectedIds.has(id)));
   const accounts = collectLimitAccounts(selected);
   const account = accounts.find((candidate) => candidate.key === accountKey);
-  const pool = collectLimitPools(accounts, now)
-    .find((candidate) => candidate.driver === account?.driver)
+  const pool = collectLimitPools(accounts, now, "account")
+    .find((candidate) => candidate.accounts[0]?.key === accountKey)
     ?.windows.find((candidate) => candidate.id === windowId && candidate.kind === windowKind);
   const window = pool?.members.find((member) => member.account.key === accountKey)?.window;
   const reset = pool?.resets.find((candidate) => candidate.member.account.key === accountKey);

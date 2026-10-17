@@ -782,7 +782,13 @@ export function UsagePage() {
 
                 <section className="flex flex-col gap-3">
                   <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-sm font-medium text-foreground">Breakdown</h2>
+                    <div className="flex flex-col gap-1">
+                      <h2 className="text-sm font-medium text-foreground">Breakdown</h2>
+                      <p className="text-xs text-muted-foreground">
+                        API price estimates, not subscription spend. Cached tokens use lower rates.
+                        Token totals include all providers.
+                      </p>
+                    </div>
                     <ToggleGroup
                       aria-label="Usage breakdown"
                       variant="segmented"
@@ -901,8 +907,8 @@ export function UsagePage() {
                               {PROVIDER_PRESENTATION[provider].label}
                             </th>
                           ))}
-                          <th className="py-2 text-right font-normal">Total</th>
-                          <th className="py-2 text-right font-normal">Tokens</th>
+                          <th className="py-2 text-right font-normal">Est. API cost</th>
+                          <th className="py-2 text-right font-normal">All tokens</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -934,7 +940,17 @@ export function UsagePage() {
                                     figureClass(isProviderLoading(provider)),
                                   )}
                                 >
-                                  {formatUsd(period.byProvider.get(provider)?.costUsd ?? 0)}
+                                  <div className="flex flex-col gap-0.5">
+                                    <span>
+                                      {formatUsd(period.byProvider.get(provider)?.costUsd ?? 0)}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {formatTokens(
+                                        period.byProvider.get(provider)?.totalTokens ?? 0,
+                                      )}{" "}
+                                      tokens
+                                    </span>
+                                  </div>
                                 </td>
                               ))}
                               <td
