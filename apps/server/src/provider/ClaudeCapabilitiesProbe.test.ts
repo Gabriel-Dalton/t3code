@@ -354,7 +354,7 @@ it.effect("preserves initialized capabilities when optional usage times out", ()
       decodeClaudeSettings({ binaryPath: "claude" }),
     ).pipe(Effect.forkChild);
     yield* Deferred.await(usageStarted);
-    yield* TestClock.adjust("4 seconds");
+    yield* TestClock.adjust("15 seconds");
     const capabilities = yield* Fiber.join(probe);
     assert.equal(capabilities?.email, "dev@example.com");
     assert.equal(capabilities?.subscriptionType, "pro");
@@ -386,5 +386,39 @@ it.effect("asks for usage without the local transcript scan", () =>
     yield* Effect.addFinalizer(() => Effect.sync(() => query.mockRestore()));
     yield* probeClaudeCapabilities(decodeClaudeSettings({ binaryPath: "claude" }));
     assert.deepEqual(usageOptions, { skipBehaviors: true });
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
+
+it.effect("reads usage that arrives after the local command deadline", () =>
+  Effect.gen(function* () {
+    const usageStarted = yield* Deferred.make<void>();
+    const response = {
+      rate_limits_available: true,
+      rate_limits: { five_hour: { utilization: 12, resets_at: "2026-09-03T14:00:00Z" } },
+    };
+    const { promise: usageReady, resolve: completeUsage } =
+      Promise.withResolvers<typeof response>();
+    const query = vi.spyOn(ClaudeSdk, "query").mockImplementation(
+      () =>
+        ({
+          initializationResult: async () => ({
+            account: { email: "dev@example.com", subscriptionType: "max", tokenSource: "oauth" },
+            commands: [],
+          }),
+          usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET: () => {
+            Deferred.doneUnsafe(usageStarted, Effect.void);
+            return usageReady;
+          },
+        }) as unknown as ReturnType<typeof ClaudeSdk.query>,
+    );
+    yield* Effect.addFinalizer(() => Effect.sync(() => query.mockRestore()));
+    const probe = yield* probeClaudeCapabilities(
+      decodeClaudeSettings({ binaryPath: "claude" }),
+    ).pipe(Effect.forkChild);
+    yield* Deferred.await(usageStarted);
+    yield* TestClock.adjust("6 seconds");
+    completeUsage(response);
+    const capabilities = yield* Fiber.join(probe);
+    assert.deepEqual(capabilities?.usage, response);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
